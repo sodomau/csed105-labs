@@ -59,6 +59,7 @@
     .metric-label { color:var(--muted); font-size:13px; }
     .metric-value { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
     .metric-note { color:var(--muted); font-size:13px; }
+    .truth-note { margin-top:8px; padding:9px 11px; border-left:3px solid var(--test); background:#f0f2f5; color:var(--muted); font-size:14px; }
     .trend-heading { margin:12px 0 4px; }
     .error-chart { background:var(--paper); border:1px solid var(--line); border-radius:8px; }
     .error-train { fill:none; stroke:var(--blue); stroke-width:2.5; }
@@ -131,6 +132,7 @@
         <div class="metric validation"><div class="metric-label" data-i18n="validationRmse">Validation RMSE</div><div id="validation-rmse" class="metric-value number">—</div></div>
         <div id="test-metric" class="metric test" hidden><div class="metric-label" data-i18n="testRmse">Test RMSE</div><div id="test-rmse" class="metric-value number">—</div><div id="test-note" class="metric-note" data-i18n="testNote">Final check for the degree you selected.</div></div>
       </div>
+      <div id="truth-note" class="truth-note" hidden></div>
       <div id="status" class="status" role="status" aria-live="polite" data-i18n="statusExplore">Compare the two errors as k changes. Training error usually keeps falling; validation error may rise again.</div>
     </section>
   </div>
@@ -152,6 +154,7 @@
       degreeName:'Degree',plotTitle:'Polynomial regression fit',plotDesc:'Training and validation observations with the selected polynomial curve. Test observations appear after the test set is revealed.',
       errorPlotTitle:'RMSE by polynomial degree',errorPlotDesc:'A line chart compares training and validation RMSE. After revealing the test set, test RMSE is also shown for all degrees one through ten. The selected degree is highlighted.',
       newDataStatus:'A new noisy dataset is ready. Explore the degree again.',testCaption:'Test observations',
+      truthNote:(degree)=>`For this simulation, the data were generated from a degree-${degree} polynomial. In a real task, the underlying function is unknown.`,
     },
     ko: {
       title:'다항식 차수 고르기',intro:'복잡한 곡선은 training data에 잘 맞아도 새로운 데이터에서는 예측이 나쁠 수 있습니다. 다항식 차수가 이 균형에 어떤 영향을 주는지 살펴보세요.',
@@ -164,6 +167,7 @@
       degreeName:'차수',plotTitle:'다항 회귀 곡선',plotDesc:'선택한 다항식 곡선과 training 및 validation 관측값입니다. test set을 공개하면 test 관측값이 나타납니다.',
       errorPlotTitle:'다항식 차수별 RMSE',errorPlotDesc:'training과 validation의 RMSE를 비교합니다. test set 공개 후에는 1차부터 10차까지 test RMSE도 함께 표시합니다. 현재 선택한 차수를 강조합니다.',
       newDataStatus:'새로운 noisy dataset을 만들었습니다. 차수를 다시 살펴보세요.',testCaption:'Test 관측값',
+      truthNote:(degree)=>`이 실습 데이터는 ${degree}차 다항식에서 생성했습니다. 실제 문제에서는 데이터의 생성 함수가 알려져 있지 않습니다.`,
     }
   };
   const $ = id => document.getElementById(id);
@@ -171,8 +175,26 @@
   const maxDegree = 10, xMin = -1, xMax = 1, yMin = -1.5, yMax = 1.5;
   const degreeInput = $('degree');
   const rngFactory = initial => { let state = initial >>> 0; return () => { state = (1664525 * state + 1013904223) >>> 0; return state / 4294967296; }; };
-  const target = x => 0.12 + 0.55 * x - 0.45 * x * x;
-  function makeSplit(count, initialSeed, noise) {
+  function makeGroundTruth(initialSeed) {
+    const random = rngFactory(initialSeed), degree = 1 + Math.floor(random() * 6);
+    const scale = 1 / Math.sqrt(degree + 1);
+    const coefficients = Array.from({length:degree+1}, () => (2 * random() - 1) * 0.8 * scale);
+    coefficients[degree] = (random() < 0.5 ? -1 : 1) * (0.8 + 0.35 * random()) * scale;
+    function target(x) {
+      let value = coefficients[0];
+      if (degree === 0) return value;
+      let previous = 1, current = x;
+      value += coefficients[1] * current;
+      for (let j=2;j<=degree;j++) {
+        const next = ((2*j-1)*x*current - (j-1)*previous) / j;
+        value += coefficients[j] * next;
+        previous = current; current = next;
+      }
+      return value;
+    }
+    return {degree, target};
+  }
+  function makeSplit(count, initialSeed, noise, target) {
     const random = rngFactory(initialSeed), values = [];
     for (let i=0;i<count;i++) {
       const x = -0.94 + 1.88 * ((i + 0.18 + 0.64 * random()) / count);
@@ -184,9 +206,10 @@
   }
   function newDataset() {
     const base = 17 + seed * 113;
-    data = {train:makeSplit(12,base,0.25), validation:makeSplit(24,base+1,0.25), test:makeSplit(24,base+2,0.25)};
+    const truth = makeGroundTruth(base);
+    data = {trueDegree:truth.degree, train:makeSplit(12,base+1,0.12,truth.target), validation:makeSplit(24,base+2,0.12,truth.target), test:makeSplit(24,base+3,0.12,truth.target)};
     testRevealed = false; degreeInput.disabled = false; degreeInput.value = '3'; $('degree-value').textContent = '3';
-    $('test-metric').hidden = true; $('test-legend').hidden = true; $('test-points').replaceChildren(); $('reveal-test').disabled = false; $('reveal-test').textContent = t('reveal');
+    $('test-metric').hidden = true; $('truth-note').hidden = true; $('test-legend').hidden = true; $('test-points').replaceChildren(); $('reveal-test').disabled = false; $('reveal-test').textContent = t('reveal');
     $('test-error-legend').hidden = true;
     $('status').className = 'status'; updateStatus('newDataStatus'); update();
   }
@@ -255,7 +278,7 @@
     $('train-rmse').textContent=fmt(tr);$('validation-rmse').textContent=fmt(vr);
     const trainErrors=[],valErrors=[],testErrors=[];for(let k=1;k<=maxDegree;k++){const model=fitPolynomial(data.train,k);trainErrors.push(rmse(data.train,model));valErrors.push(rmse(data.validation,model));if(testRevealed)testErrors.push(rmse(data.test,model));}
     drawFitAxes();drawFit(predict);drawErrorChart(trainErrors,valErrors,testErrors,degree);
-    if(testRevealed){const testError=rmse(data.test,predict);$('test-rmse').textContent=fmt(testError);$('fit-hint').textContent=t('testCaption');}
+    if(testRevealed){const testError=rmse(data.test,predict);$('test-rmse').textContent=fmt(testError);$('fit-hint').textContent=t('testCaption');$('truth-note').textContent=t('truthNote')(data.trueDegree);}
   }
   function applyLanguage(){
     document.documentElement.lang=language;document.title=language==='en'?'Choosing a Hyperparameter: Polynomial Degree · CSED105':'하이퍼파라미터 고르기: 다항식 차수 · CSED105';
@@ -265,7 +288,7 @@
   }
   degreeInput.addEventListener('input',update);
   $('new-data').addEventListener('click',()=>{seed++;newDataset();});
-  $('reveal-test').addEventListener('click',()=>{if(testRevealed)return;testRevealed=true;$('test-metric').hidden=false;$('test-legend').hidden=false;$('test-error-legend').hidden=false;$('reveal-test').disabled=true;$('reveal-test').textContent=t('revealDone');updateStatus('statusDone');update();});
+  $('reveal-test').addEventListener('click',()=>{if(testRevealed)return;testRevealed=true;$('test-metric').hidden=false;$('truth-note').hidden=false;$('test-legend').hidden=false;$('test-error-legend').hidden=false;$('reveal-test').disabled=true;$('reveal-test').textContent=t('revealDone');updateStatus('statusDone');update();});
   $('language').addEventListener('click',()=>{language=language==='en'?'ko':'en';applyLanguage();});
   newDataset();applyLanguage();
 })();
