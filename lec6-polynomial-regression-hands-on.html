@@ -85,7 +85,7 @@
   </header>
 
   <div class="steps" aria-label="Activity steps">
-    <p data-i18n="step1"><strong>Explore:</strong> Move the degree slider and compare the fitted curve and errors.</p>
+    <p data-i18n="step1"><strong>Explore:</strong> Move the degree slider and compare the fitted curve and errors. New data also change the hidden degree that generated them.</p>
     <p data-i18n="step2"><strong>Choose:</strong> Use validation error to select a degree.</p>
     <p data-i18n="step3"><strong>Reveal:</strong> Keep moving k and compare all three error curves. In practice, never use test error to choose k.</p>
   </div>
@@ -145,7 +145,7 @@
   const copy = {
     en: {
       title:'Choosing a Hyperparameter: Polynomial Degree',intro:'A more complex curve can fit training data closely, yet predict poorly on new data. Explore how the polynomial degree affects this trade-off.',
-      step1:'<strong>Explore:</strong> Move the degree slider and compare the fitted curve and errors.',step2:'<strong>Choose:</strong> Use validation error to select a degree.',step3:'<strong>Reveal:</strong> Keep moving k and compare all three error curves. In practice, never use test error to choose k.',
+      step1:'<strong>Explore:</strong> Move the degree slider and compare the fitted curve and errors. New data also change the hidden degree that generated them.',step2:'<strong>Choose:</strong> Use validation error to select a degree.',step3:'<strong>Reveal:</strong> Keep moving k and compare all three error curves. In practice, never use test error to choose k.',
       degreeLabel:'Polynomial degree, k',degreeHelp:'Higher k allows a more flexible curve.',newData:'New dataset',reveal:'Reveal test set',revealDone:'Test set revealed',fitTitle:'Model fit',fitHint:'The curve is fit using training points only.',errorTitle:'Error as degree changes',
       trainLegend:'Training data',validationLegend:'Validation data',testLegend:'Test data',trainErrorLegend:'Training RMSE',validationErrorLegend:'Validation RMSE',testErrorLegend:'Test RMSE',trainRmse:'Training RMSE',validationRmse:'Validation RMSE',testRmse:'Test RMSE',testNote:'RMSE for the current degree. After revealing, the full test-error curve is shown.',
       statusExplore:'Compare the two errors as k changes. Training error usually keeps falling; validation error may rise again.',statusDone:'Test data and the test-error curve are visible. Keep moving k to see the selected test RMSE update; in a real evaluation, use validation data—not test error—to choose k.',
@@ -158,7 +158,7 @@
     },
     ko: {
       title:'다항식 차수 고르기',intro:'복잡한 곡선은 training data에 잘 맞아도 새로운 데이터에서는 예측이 나쁠 수 있습니다. 다항식 차수가 이 균형에 어떤 영향을 주는지 살펴보세요.',
-      step1:'<strong>살펴보기:</strong> 차수 슬라이더를 움직이며 곡선과 오차를 비교하세요.',step2:'<strong>선택하기:</strong> validation 오차를 기준으로 차수를 고르세요.',step3:'<strong>공개하기:</strong> k를 계속 움직이며 세 오차 곡선을 비교하세요. 실제 문제에서는 test 오차로 k를 고르면 안 됩니다.',
+      step1:'<strong>살펴보기:</strong> 차수 슬라이더를 움직이며 곡선과 오차를 비교하세요. 새 데이터를 만들면 데이터를 생성한 숨은 차수도 바뀝니다.',step2:'<strong>선택하기:</strong> validation 오차를 기준으로 차수를 고르세요.',step3:'<strong>공개하기:</strong> k를 계속 움직이며 세 오차 곡선을 비교하세요. 실제 문제에서는 test 오차로 k를 고르면 안 됩니다.',
       degreeLabel:'다항식 차수, k',degreeHelp:'k가 클수록 더 유연한 곡선을 만들 수 있습니다.',newData:'새 데이터',reveal:'test set 공개',revealDone:'test set 공개됨',fitTitle:'모델이 데이터에 맞춘 곡선',fitHint:'곡선은 training data만 사용해 맞춥니다.',errorTitle:'차수에 따른 오차 변화',
       trainLegend:'Training data',validationLegend:'Validation data',testLegend:'Test data',trainErrorLegend:'Training RMSE',validationErrorLegend:'Validation RMSE',testErrorLegend:'Test RMSE',trainRmse:'Training RMSE',validationRmse:'Validation RMSE',testRmse:'Test RMSE',testNote:'현재 차수의 RMSE입니다. 공개 후에는 모든 차수의 test 오차 곡선을 볼 수 있습니다.',
       statusExplore:'k를 바꾸며 두 오차를 비교하세요. Training 오차는 대체로 계속 감소하지만 validation 오차는 다시 커질 수 있습니다.',statusDone:'test data와 test 오차 곡선을 공개했습니다. k를 움직이며 현재 Test RMSE가 달라지는 것을 살펴보세요. 실제 평가에서는 test 오차가 아니라 validation data로 k를 고릅니다.',
@@ -175,6 +175,12 @@
   const maxDegree = 10, xMin = -1, xMax = 1, yMin = -1.5, yMax = 1.5;
   const degreeInput = $('degree');
   const rngFactory = initial => { let state = initial >>> 0; return () => { state = (1664525 * state + 1013904223) >>> 0; return state / 4294967296; }; };
+  function mixSeed(value) {
+    let mixed = value >>> 0;
+    mixed = Math.imul(mixed ^ (mixed >>> 16), 0x7feb352d);
+    mixed = Math.imul(mixed ^ (mixed >>> 15), 0x846ca68b);
+    return (mixed ^ (mixed >>> 16)) >>> 0;
+  }
   function makeGroundTruth(initialSeed) {
     const random = rngFactory(initialSeed), degree = 1 + Math.floor(random() * 6);
     const scale = 1 / Math.sqrt(degree + 1);
@@ -205,9 +211,9 @@
     return values.sort((a,b)=>a.x-b.x);
   }
   function newDataset() {
-    const base = 17 + seed * 113;
+    const base = mixSeed(seed);
     const truth = makeGroundTruth(base);
-    data = {trueDegree:truth.degree, train:makeSplit(12,base+1,0.12,truth.target), validation:makeSplit(24,base+2,0.12,truth.target), test:makeSplit(24,base+3,0.12,truth.target)};
+    data = {trueDegree:truth.degree, train:makeSplit(12,mixSeed(base+1),0.12,truth.target), validation:makeSplit(24,mixSeed(base+2),0.12,truth.target), test:makeSplit(24,mixSeed(base+3),0.12,truth.target)};
     testRevealed = false; degreeInput.disabled = false; degreeInput.value = '3'; $('degree-value').textContent = '3';
     $('test-metric').hidden = true; $('truth-note').hidden = true; $('test-legend').hidden = true; $('test-points').replaceChildren(); $('reveal-test').disabled = false; $('reveal-test').textContent = t('reveal');
     $('test-error-legend').hidden = true;
