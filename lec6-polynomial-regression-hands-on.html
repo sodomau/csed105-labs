@@ -186,7 +186,7 @@
     const scale = 1 / Math.sqrt(degree + 1);
     const coefficients = Array.from({length:degree+1}, () => (2 * random() - 1) * 0.8 * scale);
     coefficients[degree] = (random() < 0.5 ? -1 : 1) * (0.8 + 0.35 * random()) * scale;
-    function target(x) {
+    function rawTarget(x) {
       let value = coefficients[0];
       if (degree === 0) return value;
       let previous = 1, current = x;
@@ -198,6 +198,12 @@
       }
       return value;
     }
+    const grid = Array.from({length:201},(_,i)=>-1+2*i/200);
+    const mean = grid.reduce((sum,x)=>sum+rawTarget(x),0)/grid.length;
+    const variance = grid.reduce((sum,x)=>sum+(rawTarget(x)-mean)**2,0)/grid.length;
+    const scaleToVisibleSpread = 0.55 / Math.sqrt(variance);
+    const offset = (random()-0.5)*0.3;
+    const target = x => offset + (rawTarget(x)-mean)*scaleToVisibleSpread;
     return {degree, target};
   }
   function makeSplit(count, initialSeed, noise, target) {
