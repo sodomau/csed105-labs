@@ -213,7 +213,7 @@
   function newDataset() {
     const base = mixSeed(seed);
     const truth = makeGroundTruth(base);
-    data = {trueDegree:truth.degree, train:makeSplit(12,mixSeed(base+1),0.20,truth.target), validation:makeSplit(24,mixSeed(base+2),0.20,truth.target), test:makeSplit(24,mixSeed(base+3),0.20,truth.target)};
+    data = {trueDegree:truth.degree, train:makeSplit(12,mixSeed(base+1),0.20,truth.target), validation:makeSplit(16,mixSeed(base+2),0.20,truth.target), test:makeSplit(16,mixSeed(base+3),0.20,truth.target)};
     testRevealed = false; degreeInput.disabled = false; degreeInput.value = '3'; $('degree-value').textContent = '3';
     $('test-metric').hidden = true; $('truth-note').hidden = true; $('test-legend').hidden = true; $('test-points').replaceChildren(); $('reveal-test').disabled = false; $('reveal-test').textContent = t('reveal');
     $('test-error-legend').hidden = true;
