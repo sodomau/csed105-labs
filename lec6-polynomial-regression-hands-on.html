@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choosing a Hyperparameter: Polynomial Degree · CSED105</title>
+  <style>
+    :root { color-scheme: light; --blue:#2365d5; --blue-soft:#eaf1ff; --orange:#c56b16; --orange-soft:#fff3e5; --ink:#17243c; --muted:#536179; --line:#d9e0eb; --paper:#fff; --page:#f7f9fc; --test:#68758a; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(1120px,100%); margin:0 auto; padding:34px 22px 48px; }
+    header { border-bottom:2px solid var(--blue); padding-bottom:20px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .brand { color:var(--blue); font-size:13px; font-weight:750; letter-spacing:.09em; }
+    button, input { font:inherit; }
+    button { min-height:42px; padding:8px 14px; border:1px solid #b6c7e1; border-radius:7px; background:var(--paper); color:var(--blue); font-weight:650; cursor:pointer; }
+    button:hover:not(:disabled) { background:var(--blue-soft); }
+    button:focus-visible, input:focus-visible { outline:3px solid #8cb4ff; outline-offset:2px; }
+    button:disabled { cursor:not-allowed; opacity:.58; }
+    h1 { margin:12px 0 6px; font-size:clamp(30px,4.5vw,42px); line-height:1.2; }
+    h2 { margin:0 0 8px; font-size:20px; line-height:1.3; }
+    p { margin:5px 0; color:var(--muted); }
+    .intro { max-width:800px; }
+    .steps { margin:18px 0 20px; padding:13px 16px; border-left:4px solid var(--blue); background:var(--blue-soft); border-radius:0 8px 8px 0; }
+    .steps strong { color:var(--ink); }
+    .steps p { margin:2px 0; color:var(--ink); }
+    .controls { display:flex; align-items:end; flex-wrap:wrap; gap:14px 22px; margin:18px 0; }
+    .degree-control { flex:1 1 360px; max-width:620px; }
+    .degree-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:5px; font-weight:700; }
+    output, .number { font-variant-numeric:tabular-nums; }
+    #degree-value { color:var(--blue); font-size:22px; }
+    input[type=range] { display:block; width:100%; accent-color:var(--blue); }
+    .actions { display:flex; align-items:center; flex-wrap:wrap; gap:9px; }
+    .primary { background:var(--blue); color:white; border-color:var(--blue); }
+    .primary:hover:not(:disabled) { background:#1b55b8; }
+    .chart-layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(280px,.85fr); gap:24px; align-items:start; }
+    .chart-area { min-width:0; }
+    .chart-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; }
+    .chart-heading p { font-size:14px; }
+    svg { display:block; width:100%; height:auto; overflow:visible; }
+    .plot-svg { background:var(--paper); border:1px solid var(--line); border-radius:8px; }
+    .grid { stroke:#e8edf4; stroke-width:1; }
+    .axis { stroke:#8792a4; stroke-width:1.3; }
+    .tick-label, .axis-title { fill:var(--muted); font:12px system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .fit-line { fill:none; stroke:var(--blue); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+    .train-point { fill:var(--blue); stroke:white; stroke-width:1; }
+    .validation-point { fill:white; stroke:var(--orange); stroke-width:2.2; }
+    .test-point { fill:var(--test); stroke:white; stroke-width:1; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin:8px 2px 0; color:var(--muted); font-size:14px; }
+    .key { display:inline-block; width:10px; height:10px; margin-right:6px; border-radius:50%; vertical-align:middle; }
+    .key.train { background:var(--blue); }
+    .key.validation { background:white; border:2px solid var(--orange); }
+    .key.test { background:var(--test); }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:12px 0 14px; }
+    .metric { padding:11px 12px; background:var(--paper); border-top:3px solid var(--line); }
+    .metric.train { border-color:var(--blue); }
+    .metric.validation { border-color:var(--orange); }
+    .metric.test { grid-column:1 / -1; border-color:var(--test); }
+    .metric-label { color:var(--muted); font-size:13px; }
+    .metric-value { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .metric-note { color:var(--muted); font-size:13px; }
+    .trend-heading { margin:12px 0 4px; }
+    .error-chart { background:var(--paper); border:1px solid var(--line); border-radius:8px; }
+    .error-train { fill:none; stroke:var(--blue); stroke-width:2.5; }
+    .error-validation { fill:none; stroke:var(--orange); stroke-width:2.5; }
+    .current-guide { stroke:#7d8796; stroke-width:1.2; stroke-dasharray:4 4; }
+    .status { min-height:42px; margin-top:11px; padding:9px 11px; border-radius:6px; background:#eef1f6; color:var(--muted); font-size:14px; }
+    .status.ready { background:var(--orange-soft); color:#68400f; }
+    .status.done { background:var(--blue-soft); color:#214b8d; }
+    .question { margin-top:18px; padding-top:13px; border-top:1px solid var(--line); }
+    .question strong { color:var(--ink); }
+    .footer { margin-top:18px; color:var(--muted); font-size:13px; }
+    @media (max-width:800px) { main { padding:24px 16px 36px; } .chart-layout { grid-template-columns:1fr; gap:19px; } }
+    @media (max-width:420px) { .metrics { grid-template-columns:1fr 1fr; } .metric { padding:9px; } .actions { width:100%; } .actions button { flex:1; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="top"><div class="brand">POSTECH · CSED105 · LECTURE 6</div><button id="language" type="button" aria-label="Switch to Korean">한국어</button></div>
+    <h1 data-i18n="title">Choosing a Hyperparameter: Polynomial Degree</h1>
+    <p class="intro" data-i18n="intro">A more complex curve can fit training data closely, yet predict poorly on new data. Explore how the polynomial degree affects this trade-off.</p>
+  </header>
+
+  <div class="steps" aria-label="Activity steps">
+    <p data-i18n="step1"><strong>Explore:</strong> Move the degree slider and compare the fitted curve and errors.</p>
+    <p data-i18n="step2"><strong>Choose:</strong> Use validation error to select a degree.</p>
+    <p data-i18n="step3"><strong>Check:</strong> Lock your choice, then reveal the test set for a final evaluation.</p>
+  </div>
+
+  <section class="controls" aria-label="Model controls">
+    <div class="degree-control">
+      <div class="degree-heading"><label for="degree" data-i18n="degreeLabel">Polynomial degree, k</label><output id="degree-value" for="degree">3</output></div>
+      <input id="degree" type="range" min="1" max="10" step="1" value="3" aria-describedby="degree-help">
+      <p id="degree-help" class="metric-note" data-i18n="degreeHelp">Higher k allows a more flexible curve.</p>
+    </div>
+    <div class="actions">
+      <button id="new-data" type="button" data-i18n="newData">New dataset</button>
+      <button id="reveal-test" class="primary" type="button" data-i18n="reveal">Lock k and reveal test set</button>
+    </div>
+  </section>
+
+  <div class="chart-layout">
+    <section class="chart-area" aria-labelledby="fit-title">
+      <div class="chart-heading"><h2 id="fit-title" data-i18n="fitTitle">Model fit</h2><p id="fit-hint" data-i18n="fitHint">The curve is fit using training points only.</p></div>
+      <svg id="fit-chart" class="plot-svg" viewBox="0 0 720 390" role="img" aria-labelledby="fit-svg-title fit-svg-desc">
+        <title id="fit-svg-title">Polynomial regression fit</title>
+        <desc id="fit-svg-desc">Training and validation observations with the selected polynomial curve. Test observations appear after the degree is locked.</desc>
+        <defs><clipPath id="plot-clip"><rect x="58" y="25" width="642" height="320" rx="0"/></clipPath></defs>
+        <g id="fit-axes"></g><path id="fit-path" class="fit-line" clip-path="url(#plot-clip)"></path>
+        <g id="train-points" clip-path="url(#plot-clip)"></g><g id="validation-points" clip-path="url(#plot-clip)"></g><g id="test-points" clip-path="url(#plot-clip)"></g>
+      </svg>
+      <div class="legend" aria-label="Plot legend">
+        <span><i class="key train" aria-hidden="true"></i><span data-i18n="trainLegend">Training data</span></span>
+        <span><i class="key validation" aria-hidden="true"></i><span data-i18n="validationLegend">Validation data</span></span>
+        <span id="test-legend" hidden><i class="key test" aria-hidden="true"></i><span data-i18n="testLegend">Test data</span></span>
+      </div>
+    </section>
+
+    <section class="chart-area" aria-labelledby="error-title">
+      <h2 id="error-title" class="trend-heading" data-i18n="errorTitle">Error as degree changes</h2>
+      <svg id="error-chart" class="error-chart" viewBox="0 0 420 245" role="img" aria-labelledby="error-svg-title error-svg-desc">
+        <title id="error-svg-title">Training and validation RMSE by polynomial degree</title>
+        <desc id="error-svg-desc">A line chart compares training and validation root mean squared error for degrees one through ten. The selected degree is highlighted.</desc>
+        <g id="error-axes"></g><path id="error-train-path" class="error-train"></path><path id="error-validation-path" class="error-validation"></path><g id="error-marks"></g>
+      </svg>
+      <div class="legend"><span><i class="key train" aria-hidden="true"></i><span data-i18n="trainErrorLegend">Training RMSE</span></span><span><i class="key validation" aria-hidden="true"></i><span data-i18n="validationErrorLegend">Validation RMSE</span></span></div>
+      <div class="metrics" aria-live="polite">
+        <div class="metric train"><div class="metric-label" data-i18n="trainRmse">Training RMSE</div><div id="train-rmse" class="metric-value number">—</div></div>
+        <div class="metric validation"><div class="metric-label" data-i18n="validationRmse">Validation RMSE</div><div id="validation-rmse" class="metric-value number">—</div></div>
+        <div id="test-metric" class="metric test" hidden><div class="metric-label" data-i18n="testRmse">Test RMSE</div><div id="test-rmse" class="metric-value number">—</div><div id="test-note" class="metric-note" data-i18n="testNote">Final check for the degree you selected.</div></div>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite" data-i18n="statusExplore">Compare the two errors as k changes. Training error usually keeps falling; validation error may rise again.</div>
+    </section>
+  </div>
+
+  <div class="question"><strong data-i18n="questionTitle">Think about it</strong><p data-i18n="question">Which degree would you choose based on validation RMSE? Does the test error tell the same story?</p></div>
+  <p class="footer" data-i18n="footer">The test set is held out until the final check so it does not guide the choice of k.</p>
+</main>
+<script>
+(() => {
+  const copy = {
+    en: {
+      title:'Choosing a Hyperparameter: Polynomial Degree',intro:'A more complex curve can fit training data closely, yet predict poorly on new data. Explore how the polynomial degree affects this trade-off.',
+      step1:'<strong>Explore:</strong> Move the degree slider and compare the fitted curve and errors.',step2:'<strong>Choose:</strong> Use validation error to select a degree.',step3:'<strong>Check:</strong> Lock your choice, then reveal the test set for a final evaluation.',
+      degreeLabel:'Polynomial degree, k',degreeHelp:'Higher k allows a more flexible curve.',newData:'New dataset',reveal:'Lock k and reveal test set',fitTitle:'Model fit',fitHint:'The curve is fit using training points only.',errorTitle:'Error as degree changes',
+      trainLegend:'Training data',validationLegend:'Validation data',testLegend:'Test data',trainErrorLegend:'Training RMSE',validationErrorLegend:'Validation RMSE',trainRmse:'Training RMSE',validationRmse:'Validation RMSE',testRmse:'Test RMSE',testNote:'Final check for the degree you selected.',
+      statusExplore:'Compare the two errors as k changes. Training error usually keeps falling; validation error may rise again.',statusDone:'Your choice is locked. The test set now gives a final estimate of how well it predicts unseen data.',
+      questionTitle:'Think about it',question:'Which degree would you choose based on validation RMSE? Does the test error tell the same story?',footer:'The test set is held out until the final check so it does not guide the choice of k.',
+      xAxis:'Input x',yAxis:'Output y',kAxis:'Polynomial degree k',rmseAxis:'RMSE',
+      degreeName:'Degree',plotTitle:'Polynomial regression fit',plotDesc:'Training and validation observations with the selected polynomial curve. Test observations appear after the degree is locked.',
+      errorPlotTitle:'Training and validation RMSE by polynomial degree',errorPlotDesc:'A line chart compares training and validation root mean squared error for degrees one through ten. The selected degree is highlighted.',
+      newDataStatus:'A new noisy dataset is ready. Explore the degree again.', lockedChoice:'Degree k = ',lockedSuffix:' was selected. Test RMSE: ',
+      testHidden:'Lock a degree to reveal the test set.',testCaption:'Test observations',
+    },
+    ko: {
+      title:'다항식 차수 고르기',intro:'복잡한 곡선은 training data에 잘 맞아도 새로운 데이터에서는 예측이 나쁠 수 있습니다. 다항식 차수가 이 균형에 어떤 영향을 주는지 살펴보세요.',
+      step1:'<strong>살펴보기:</strong> 차수 슬라이더를 움직이며 곡선과 오차를 비교하세요.',step2:'<strong>선택하기:</strong> validation 오차를 기준으로 차수를 고르세요.',step3:'<strong>확인하기:</strong> 선택을 고정한 뒤 test set으로 마지막 평가를 하세요.',
+      degreeLabel:'다항식 차수, k',degreeHelp:'k가 클수록 더 유연한 곡선을 만들 수 있습니다.',newData:'새 데이터',reveal:'차수 고정 후 test set 보기',fitTitle:'모델이 데이터에 맞춘 곡선',fitHint:'곡선은 training data만 사용해 맞춥니다.',errorTitle:'차수에 따른 오차 변화',
+      trainLegend:'Training data',validationLegend:'Validation data',testLegend:'Test data',trainErrorLegend:'Training RMSE',validationErrorLegend:'Validation RMSE',trainRmse:'Training RMSE',validationRmse:'Validation RMSE',testRmse:'Test RMSE',testNote:'선택한 차수의 마지막 평가입니다.',
+      statusExplore:'k를 바꾸며 두 오차를 비교하세요. Training 오차는 대체로 계속 감소하지만 validation 오차는 다시 커질 수 있습니다.',statusDone:'선택한 차수를 고정했습니다. test set으로 처음 보는 데이터에 대한 예측 성능을 마지막으로 확인합니다.',
+      questionTitle:'생각해 보기',question:'Validation RMSE를 기준으로 어떤 차수를 고르겠나요? Test 오차도 같은 결론을 보여 주나요?',footer:'Test set은 k 선택에 사용하지 않고 마지막 평가 때만 확인합니다.',
+      xAxis:'입력 x',yAxis:'출력 y',kAxis:'다항식 차수 k',rmseAxis:'RMSE',
+      degreeName:'차수',plotTitle:'다항 회귀 곡선',plotDesc:'선택한 다항식 곡선과 training 및 validation 관측값입니다. 선택을 고정하면 test 관측값이 나타납니다.',
+      errorPlotTitle:'다항식 차수별 Training 및 Validation RMSE',errorPlotDesc:'1차부터 10차까지 training과 validation의 RMSE를 비교합니다. 현재 선택한 차수를 강조합니다.',
+      newDataStatus:'새로운 noisy dataset을 만들었습니다. 차수를 다시 살펴보세요.',lockedChoice:'선택한 차수 k = ',lockedSuffix:'의 Test RMSE: ',
+      testHidden:'차수를 고정하면 test set을 확인할 수 있습니다.',testCaption:'Test 관측값',
+    }
+  };
+  const $ = id => document.getElementById(id);
+  let language = 'en', seed = 11, data = null, locked = false;
+  const maxDegree = 10, xMin = -1, xMax = 1, yMin = -1.5, yMax = 1.5;
+  const degreeInput = $('degree');
+  const rngFactory = initial => { let state = initial >>> 0; return () => { state = (1664525 * state + 1013904223) >>> 0; return state / 4294967296; }; };
+  const target = x => 0.62 * Math.sin(2.25 * Math.PI * x) + 0.18 * x;
+  function makeSplit(count, initialSeed, noise) {
+    const random = rngFactory(initialSeed), values = [];
+    for (let i=0;i<count;i++) {
+      const x = -0.94 + 1.88 * ((i + 0.18 + 0.64 * random()) / count);
+      const u1 = Math.max(random(), 1e-9), u2 = random();
+      const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      values.push({x, y:target(x) + noise * z});
+    }
+    return values.sort((a,b)=>a.x-b.x);
+  }
+  function newDataset() {
+    const base = 17 + seed * 113;
+    data = {train:makeSplit(18,base,0.26), validation:makeSplit(24,base+1,0.26), test:makeSplit(24,base+2,0.26)};
+    locked = false; degreeInput.disabled = false; degreeInput.value = '3'; $('degree-value').textContent = '3';
+    $('test-metric').hidden = true; $('test-legend').hidden = true; $('test-points').replaceChildren(); $('reveal-test').disabled = false;
+    $('status').className = 'status'; updateStatus('newDataStatus'); update();
+  }
+  function dot(a,b){let value=0;for(let i=0;i<a.length;i++)value+=a[i]*b[i];return value;}
+  function fitPolynomial(points,degree) {
+    const m=points.length,n=degree+1;
+    const columns=Array.from({length:n},(_,j)=>points.map(p=>p.x**j));
+    const q=[],r=Array.from({length:n},()=>Array(n).fill(0)),qty=Array(n).fill(0);
+    for(let j=0;j<n;j++){
+      let v=columns[j].slice();
+      for(let i=0;i<j;i++){r[i][j]=dot(q[i],v);for(let k=0;k<m;k++)v[k]-=r[i][j]*q[i][k];}
+      r[j][j]=Math.sqrt(dot(v,v));
+      if(r[j][j]<1e-10)throw new Error('The fit is numerically unstable. Try a lower degree.');
+      q[j]=v.map(x=>x/r[j][j]);qty[j]=dot(q[j],points.map(p=>p.y));
+    }
+    const beta=Array(n).fill(0);
+    for(let i=n-1;i>=0;i--){let value=qty[i];for(let j=i+1;j<n;j++)value-=r[i][j]*beta[j];beta[i]=value/r[i][i];}
+    return x=>{let y=0;for(let j=beta.length-1;j>=0;j--)y=y*x+beta[j];return y;};
+  }
+  function rmse(points,predict){return Math.sqrt(points.reduce((sum,p)=>sum+(p.y-predict(p.x))**2,0)/points.length);}
+  function fmt(value){return Number.isFinite(value)?value.toFixed(3):'—';}
+  const px=x=>58+(x-xMin)/(xMax-xMin)*642;
+  const py=y=>345-(y-yMin)/(yMax-yMin)*320;
+  function linePath(points,x,y){return points.map((p,i)=>(i?'L':'M')+x(p.x).toFixed(2)+' '+y(p.y).toFixed(2)).join(' ');}
+  function svgEl(tag,attrs={}){const element=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [key,value] of Object.entries(attrs))element.setAttribute(key,String(value));return element;}
+  function drawFitAxes(){
+    const g=$('fit-axes');g.replaceChildren();
+    for(const x of [-1,-0.5,0,0.5,1]){const X=px(x);g.append(svgEl('line',{x1:X,y1:25,x2:X,y2:345,class:'grid'}));const label=svgEl('text',{x:X,y:366,'text-anchor':'middle',class:'tick-label'});label.textContent=x.toFixed(x%1===0?0:1);g.append(label);}
+    for(const y of [-1,0,1]){const Y=py(y);g.append(svgEl('line',{x1:58,y1:Y,x2:700,y2:Y,class:y===0?'axis':'grid'}));const label=svgEl('text',{x:48,y:Y+4,'text-anchor':'end',class:'tick-label'});label.textContent=String(y);g.append(label);}
+    g.append(svgEl('line',{x1:58,y1:25,x2:58,y2:345,class:'axis'}));
+    const xt=svgEl('text',{x:380,y:385,'text-anchor':'middle',class:'axis-title'});xt.textContent=t('xAxis');g.append(xt);
+    const yt=svgEl('text',{x:15,y:185,'text-anchor':'middle',class:'axis-title',transform:'rotate(-90 15 185)'});yt.textContent=t('yAxis');g.append(yt);
+  }
+  function drawPoints(group,points,className,shape){
+    const g=$(group);g.replaceChildren();
+    for(const p of points){const marker=shape==='diamond'?svgEl('path',{d:'M '+px(p.x)+' '+(py(p.y)-5)+' l 5 5 -5 5 -5 -5 Z',class:className}):svgEl('circle',{cx:px(p.x),cy:py(p.y),r:4.7,class:className});marker.setAttribute('aria-label',(shape==='diamond'?'Validation':'Observation')+': x '+p.x.toFixed(2)+', y '+p.y.toFixed(2));g.append(marker);}
+  }
+  function drawFit(predict){
+    const curve=[];for(let i=0;i<=200;i++){const x=xMin+(xMax-xMin)*i/200;curve.push({x,y:predict(x)});}
+    $('fit-path').setAttribute('d',linePath(curve,px,py));drawPoints('train-points',data.train,'train-point','circle');drawPoints('validation-points',data.validation,'validation-point','diamond');
+    if(locked)drawPoints('test-points',data.test,'test-point','circle');
+    const c=copy[language];$('fit-svg-title').textContent=c.plotTitle;$('fit-svg-desc').textContent=c.plotDesc;
+  }
+  function drawErrorChart(trainErrors,valErrors,current){
+    const g=$('error-axes');g.replaceChildren();const left=45,right=405,top=18,bottom=190;
+    const ymax=Math.max(0.2,...trainErrors,...valErrors)*1.08;
+    const X=k=>left+(k-1)/(maxDegree-1)*(right-left),Y=v=>bottom-v/ymax*(bottom-top);
+    for(let i=0;i<=4;i++){const val=ymax*i/4,yy=Y(val);g.append(svgEl('line',{x1:left,y1:yy,x2:right,y2:yy,class:'grid'}));const lab=svgEl('text',{x:left-7,y:yy+4,'text-anchor':'end',class:'tick-label'});lab.textContent=val.toFixed(2);g.append(lab);}
+    for(const k of [1,3,5,7,10]){const xx=X(k);const lab=svgEl('text',{x:xx,y:210,'text-anchor':'middle',class:'tick-label'});lab.textContent=String(k);g.append(lab);}
+    g.append(svgEl('line',{x1:left,y1:top,x2:left,y2:bottom,class:'axis'}),svgEl('line',{x1:left,y1:bottom,x2:right,y2:bottom,class:'axis'}));
+    const xt=svgEl('text',{x:225,y:237,'text-anchor':'middle',class:'axis-title'});xt.textContent=t('kAxis');g.append(xt);
+    const yt=svgEl('text',{x:12,y:102,'text-anchor':'middle',class:'axis-title',transform:'rotate(-90 12 102)'});yt.textContent=t('rmseAxis');g.append(yt);
+    const train=Array.from({length:maxDegree},(_,i)=>({x:i+1,y:trainErrors[i]})),val=Array.from({length:maxDegree},(_,i)=>({x:i+1,y:valErrors[i]}));
+    $('error-train-path').setAttribute('d',linePath(train,X,Y));$('error-validation-path').setAttribute('d',linePath(val,X,Y));
+    const marks=$('error-marks');marks.replaceChildren();marks.append(svgEl('line',{x1:X(current),y1:top,x2:X(current),y2:bottom,class:'current-guide'}));
+    for(const [points,color] of [[train,'var(--blue)'],[val,'var(--orange)']])for(const point of points)marks.append(svgEl('circle',{cx:X(point.x),cy:Y(point.y),r:point.x===current?5:2.8,fill:color,stroke:'white','stroke-width':1}));
+    const c=copy[language];$('error-svg-title').textContent=c.errorPlotTitle;$('error-svg-desc').textContent=c.errorPlotDesc;
+  }
+  function t(key){return copy[language][key];}
+  function updateStatus(key,detail=''){$('status').innerHTML=detail||t(key);}
+  function update(){
+    const degree=Number(degreeInput.value);$('degree-value').textContent=String(degree);
+    const predict=fitPolynomial(data.train,degree);const tr=rmse(data.train,predict),vr=rmse(data.validation,predict);
+    $('train-rmse').textContent=fmt(tr);$('validation-rmse').textContent=fmt(vr);
+    const trainErrors=[],valErrors=[];for(let k=1;k<=maxDegree;k++){const model=fitPolynomial(data.train,k);trainErrors.push(rmse(data.train,model));valErrors.push(rmse(data.validation,model));}
+    drawFitAxes();drawFit(predict);drawErrorChart(trainErrors,valErrors,degree);
+    if(locked){const testError=rmse(data.test,predict);$('test-rmse').textContent=fmt(testError);$('fit-hint').textContent=t('testCaption');}
+  }
+  function applyLanguage(){
+    document.documentElement.lang=language;document.title=language==='en'?'Choosing a Hyperparameter: Polynomial Degree · CSED105':'하이퍼파라미터 고르기: 다항식 차수 · CSED105';
+    document.querySelectorAll('[data-i18n]').forEach(el=>{const value=copy[language][el.dataset.i18n];if(value!==undefined)el.innerHTML=value;});
+    $('language').textContent=language==='en'?'한국어':'English';$('language').setAttribute('aria-label',language==='en'?'Switch to Korean':'Switch to English');
+    if(locked)updateStatus('statusDone');else updateStatus('statusExplore');update();
+  }
+  degreeInput.addEventListener('input',update);
+  $('new-data').addEventListener('click',()=>{seed++;newDataset();});
+  $('reveal-test').addEventListener('click',()=>{if(locked)return;locked=true;degreeInput.disabled=true;$('test-metric').hidden=false;$('test-legend').hidden=false;$('reveal-test').disabled=true;updateStatus('statusDone');update();});
+  $('language').addEventListener('click',()=>{language=language==='en'?'ko':'en';applyLanguage();});
+  newDataset();applyLanguage();
+})();
+</script>
+</body>
+</html>
